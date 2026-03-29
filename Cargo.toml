@@ -1,0 +1,59 @@
+[package]
+name = "tect-brain"
+version = "0.1.0"
+edition = "2024"
+description = "本地优先的 AI 驱动技术雷达 — 从 Hacker News 到 arXiv，从专利到技术书籍"
+
+[[bin]]
+name = "tect-brain"
+path = "src/main.rs"
+
+[lib]
+name = "tect_brain"
+path = "src/lib.rs"
+
+[dependencies]
+# Async runtime
+tokio = { version = "1", features = ["full"] }
+
+# CLI
+clap = { version = "4", features = ["derive"] }
+
+# Serialization
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+# Database
+rusqlite = { version = "0.32", features = ["bundled"] }
+
+# Vector DB
+qdrant-client = "1"
+
+# HTTP
+reqwest = { version = "0.12", features = ["json"] }
+
+# Time
+chrono = { version = "0.4", features = ["serde"] }
+
+# Error handling
+anyhow = "1"
+thiserror = "2"
+
+# Logging
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+
+# Hashing (FNV-1a for ID mapping)
+fnv = "1"
+
+# UUID
+uuid = { version = "1", features = ["v4"] }
+
+# Async trait
+async-trait = "0.1"
+
+# Colored terminal output
+colored = "3"
+
+# Prompt for chat REPL
+rustyline = "15"

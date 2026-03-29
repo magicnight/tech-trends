@@ -1,0 +1,29 @@
+# Rust
+/target
+**/*.rs.bk
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Environment
+.env
+.env.local
+.env*.local
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Data
+*.db
+*.db-journal
+data/
+
+# Tauri
+/src-tauri/target
+
+# OMC
+.omc/
