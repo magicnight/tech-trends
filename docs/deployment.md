@@ -5,7 +5,7 @@
 ### 系统要求
 
 - Rust 1.75+（推荐 stable 最新版）
-- Docker（运行 Qdrant）
+- Podman（运行 Qdrant）
 - Windows：需要 Visual Studio Build Tools + Windows 11 SDK
 
 ### 1. 克隆并编译
@@ -49,7 +49,7 @@ cargo build --release
 
 ```bash
 # Qdrant 向量数据库
-docker run -d \
+podman run -d \
   --name qdrant \
   -p 6334:6334 -p 6333:6333 \
   -v qdrant_data:/qdrant/storage \
@@ -85,9 +85,9 @@ tech-trends forecast "rust"
 
 ---
 
-## Docker Compose 一键部署
+## Podman Compose 一键部署
 
-创建 `docker-compose.yml`：
+创建 `podman-compose.yml`：
 
 ```yaml
 services:
@@ -115,10 +115,10 @@ volumes:
 
 ```bash
 # 启动基础设施
-docker compose up -d
+podman compose up -d
 
 # 拉取 Embedding 模型
-docker exec ollama ollama pull nomic-embed-text
+podman exec ollama ollama pull nomic-embed-text
 
 # 运行 tech-trends
 tech-trends sync all
@@ -232,7 +232,7 @@ Failed to create Qdrant collection
 ```
 
 **原因**：Qdrant 服务未启动。
-**解决**：`docker run -p 6334:6334 qdrant/qdrant`
+**解决**：`podman run -p 6334:6334 qdrant/qdrant`
 
 ### Ollama Embedding 失败
 

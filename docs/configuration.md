@@ -97,14 +97,14 @@ TECT_EMBEDDING_MODEL=mxbai-embed-large    # 1024 维
 
 默认连接 `localhost:6334`（gRPC 端口）。Qdrant 的 HTTP API 端口是 `6333`，tech-trends 使用 gRPC 连接。
 
-### Docker 启动
+### Podman 启动
 
 ```bash
 # 基础启动（数据不持久化）
-docker run -p 6334:6334 -p 6333:6333 qdrant/qdrant
+podman run -p 6334:6334 -p 6333:6333 qdrant/qdrant
 
 # 数据持久化
-docker run -d \
+podman run -d \
   -p 6334:6334 -p 6333:6333 \
   -v $(pwd)/qdrant_data:/qdrant/storage \
   qdrant/qdrant

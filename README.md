@@ -54,7 +54,7 @@ tech-trends topic run
 | 依赖 | 用途 | 安装方式 |
 |------|------|---------|
 | Rust 1.75+ | 编译 | [rustup.rs](https://rustup.rs) |
-| Qdrant | 向量数据库 | `docker run -p 6334:6334 qdrant/qdrant` |
+| Qdrant | 向量数据库 | `podman run -p 6334:6334 qdrant/qdrant` |
 | Ollama | 本地 Embedding | [ollama.com](https://ollama.com) |
 | DeepSeek API Key | LLM 推理 | [platform.deepseek.com](https://platform.deepseek.com) |
 
@@ -72,7 +72,7 @@ cargo build --release
 
 ```bash
 # 启动 Qdrant
-docker run -d -p 6334:6334 -p 6333:6333 qdrant/qdrant
+podman run -d -p 6334:6334 -p 6333:6333 qdrant/qdrant
 
 # 拉取 Embedding 模型
 ollama pull nomic-embed-text
@@ -146,7 +146,7 @@ src/
 - [CLI 命令参考](docs/cli-reference.md) — 完整的命令行用法
 - [配置说明](docs/configuration.md) — 所有环境变量和默认值
 - [架构设计](docs/architecture.md) — 系统架构与核心设计决策
-- [部署指南](docs/deployment.md) — 本地开发、生产部署、Docker 方案
+- [部署指南](docs/deployment.md) — 本地开发、生产部署、Podman 方案
 - [贡献指南](CONTRIBUTING.md) — 如何参与开发
 
 ## 技术选型
@@ -155,7 +155,7 @@ src/
 |------|---------|
 | Rust | 性能好、依赖管理优秀、CLI + lib 复用天然支持 |
 | SQLite | 本地优先、零运维、嵌入式。`rusqlite` 的 `bundled` feature 让部署零依赖 |
-| Qdrant | 成熟向量数据库，Docker 一行启动，gRPC 客户端性能好 |
+| Qdrant | 成熟向量数据库，Podman 一行启动，gRPC 客户端性能好 |
 | Ollama | 本地 LLM/Embedding 推理，隐私安全，零成本 |
 | clap | Rust 生态最成熟的 CLI 框架，derive 宏体验好 |
 | DeepSeek | 性价比高，中文能力强，OpenAI 兼容格式通用性好 |
