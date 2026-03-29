@@ -11,7 +11,7 @@
 ### 1. 克隆并编译
 
 ```bash
-git clone https://github.com/yourname/tech-trends.git
+git clone https://github.com/magicnight/tech-trends.git
 cd tech-trends
 cargo build --release
 ```
@@ -59,13 +59,19 @@ podman run -d \
 ollama pull nomic-embed-text
 ```
 
-### 3. 配置环境变量
+### 3. 配置
+
+在项目目录创建 `.env` 文件（启动时自动加载）：
 
 ```bash
-# 最小配置
-export TECT_LLM_API_KEY="sk-your-deepseek-key"
+# .env
+TECT_LLM_API_KEY=sk-your-deepseek-key
+```
 
-# 可选：指定数据库路径
+或通过环境变量：
+
+```bash
+export TECT_LLM_API_KEY="sk-your-deepseek-key"
 export TECT_DB_PATH="$HOME/.local/share/tech-trends/tech-trends.db"
 mkdir -p "$HOME/.local/share/tech-trends"
 ```
@@ -73,8 +79,11 @@ mkdir -p "$HOME/.local/share/tech-trends"
 ### 4. 首次运行
 
 ```bash
-# 同步数据
+# 同步数据（含向量化）
 tech-trends sync all
+
+# 查看数据库状态
+tech-trends status
 
 # 生成简报
 tech-trends digest
@@ -155,10 +164,11 @@ cp tech-trends.db tech-trends.db.backup
 sqlite3 tech-trends.db ".backup 'tech-trends-$(date +%Y%m%d).db'"
 ```
 
-Qdrant 数据可从 SQLite 重建，不需要独立备份：
+Qdrant 数据可从 SQLite 重建：
 
 ```bash
-# 如果 Qdrant 数据丢失，重新向量化即可（未来版本将提供 reindex 命令）
+# Qdrant 数据丢失时，从 SQLite 重建向量索引
+tech-trends reindex
 ```
 
 ### 资源需求
@@ -192,15 +202,15 @@ tech-trends 支持完全离线使用（同步除外）：
 2. **LLM**：替换为本地 Ollama 模型
 
 ```bash
-export TECT_LLM_API_URL=http://localhost:11434/v1
-export TECT_LLM_MODEL=llama3
-export TECT_LLM_API_KEY=ollama
+TECT_LLM_API_URL=http://localhost:11434/v1
+TECT_LLM_MODEL=llama3
+TECT_LLM_API_KEY=ollama
 ```
 
 3. **数据库**：SQLite 本地文件
 4. **向量库**：Qdrant 本地运行
 
-离线模式下，`digest`、`forecast`、`backtest`、`chat`、`topic run` 全部可用，只有 `sync` 需要网络。
+离线模式下，`digest`、`forecast`、`backtest`、`calibrate`、`chat`、`topic run`、`status` 全部可用，只有 `sync` 需要网络。
 
 ---
 
@@ -234,6 +244,15 @@ Failed to create Qdrant collection
 **原因**：Qdrant 服务未启动。
 **解决**：`podman run -p 6334:6334 qdrant/qdrant`
 
+### sync 时向量化不可用
+
+```
+⚠ 向量化不可用（Qdrant: ...），仅写入 SQLite
+```
+
+**原因**：Qdrant 未运行，sync 自动降级为仅 SQLite 模式。
+**解决**：启动 Qdrant 后运行 `tech-trends reindex` 补建向量索引。
+
 ### Ollama Embedding 失败
 
 ```
@@ -243,8 +262,8 @@ Failed to get embedding from Ollama
 **原因**：Ollama 服务未启动或模型未下载。
 **解决**：
 ```bash
-ollama serve &       # 启动服务
-ollama pull nomic-embed-text  # 下载模型
+ollama serve &                    # 启动服务
+ollama pull nomic-embed-text      # 下载模型
 ```
 
 ### LLM 请求失败
@@ -254,4 +273,4 @@ Failed to parse LLM response
 ```
 
 **原因**：API Key 未配置或无效。
-**解决**：检查 `TECT_LLM_API_KEY` 环境变量。
+**解决**：检查 `.env` 文件中的 `TECT_LLM_API_KEY`。
