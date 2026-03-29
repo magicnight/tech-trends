@@ -9,6 +9,7 @@ pub enum Source {
     Arxiv,
     Patent,
     Book,
+    GitHub,
 }
 
 impl Source {
@@ -18,6 +19,7 @@ impl Source {
             Self::Arxiv => "arxiv",
             Self::Patent => "patent",
             Self::Book => "book",
+            Self::GitHub => "github",
         }
     }
 
@@ -27,6 +29,7 @@ impl Source {
             "arxiv" => Some(Self::Arxiv),
             "patent" => Some(Self::Patent),
             "book" => Some(Self::Book),
+            "github" => Some(Self::GitHub),
             _ => None,
         }
     }

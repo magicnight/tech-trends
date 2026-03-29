@@ -1,5 +1,6 @@
 pub mod arxiv;
 pub mod book;
+pub mod github;
 pub mod hn;
 pub mod patent;
 

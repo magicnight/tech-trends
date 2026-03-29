@@ -5,11 +5,12 @@ use tracing_subscriber::EnvFilter;
 
 use tech_trends::config::Config;
 use tech_trends::crawlers::{
-    arxiv::ArxivCrawler, book::BookCrawler, hn::HnCrawler, patent::PatentCrawler, Crawler,
+    arxiv::ArxivCrawler, book::BookCrawler, github::GitHubCrawler, hn::HnCrawler,
+    patent::PatentCrawler, Crawler,
 };
 use tech_trends::db::Database;
 use tech_trends::llm::LlmClient;
-use tech_trends::services::{backtest, chat, digest, forecast, indexer, topic};
+use tech_trends::services::{backtest, calibration, chat, digest, forecast, indexer, topic};
 use tech_trends::vector::{EmbeddingClient, VectorStore};
 
 #[derive(Parser)]
@@ -23,7 +24,7 @@ struct Cli {
 enum Commands {
     /// 同步数据源（含向量化）
     Sync {
-        /// 指定来源: hn, arxiv, patent, book, all
+        /// 指定来源: hn, arxiv, patent, book, github, all
         #[arg(default_value = "all")]
         source: String,
         /// 每个来源抓取条数上限
@@ -57,6 +58,11 @@ enum Commands {
     Topic {
         #[command(subcommand)]
         action: TopicAction,
+    },
+    /// 校准预测模型（对比历史预测与实际数据）
+    Calibrate {
+        /// 要校准的关键词
+        keyword: String,
     },
     /// 显示数据库统计信息
     Status,
@@ -113,10 +119,32 @@ async fn main() -> Result<()> {
         Commands::Forecast { keyword } => {
             let llm = make_llm(&cfg);
             let result = forecast::forecast(&db, &llm, &keyword).await?;
+
+            // 保存预测记录用于校准
+            let _ = calibration::save_prediction(
+                &db,
+                &keyword,
+                result.stage,
+                result.confidence,
+                result.windows.days_30,
+                result.windows.days_90,
+                result.windows.days_180,
+            );
+
+            // 显示校准权重（如有历史数据）
+            let cal_weight = calibration::get_calibrated_weight(&db, &keyword);
+
             println!("{}", "━".repeat(50).dimmed());
             println!("{} {}", "关键词:".bold(), result.keyword);
             println!("{} {}", "阶段:".bold(), result.stage);
             println!("{} {}", "置信度:".bold(), result.confidence);
+            if (cal_weight - 1.0).abs() > 0.01 {
+                println!(
+                    "{} {:.1}x (基于历史校准)",
+                    "置信度调整:".bold(),
+                    cal_weight
+                );
+            }
             println!(
                 "{} 30d={}, 90d={}, 180d={}, total={}",
                 "窗口统计:".bold(),
@@ -194,6 +222,29 @@ async fn main() -> Result<()> {
                 }
             }
         },
+        Commands::Calibrate { keyword } => {
+            let report = calibration::calibrate(&db, &keyword)?;
+            println!("{}", "━".repeat(50).dimmed());
+            println!("{} {}", "关键词:".bold(), report.keyword);
+            println!("{} {}", "历史预测数:".bold(), report.total_predictions);
+            if let Some(acc) = report.direction_accuracy {
+                println!("{} {:.0}%", "方向准确率:".bold(), acc * 100.0);
+            } else {
+                println!("{} 数据不足", "方向准确率:".bold());
+            }
+            println!("{} {}", "置信度调整建议:".bold(), report.confidence_adjustment);
+            if !report.details.is_empty() {
+                println!("\n{}", "历史对比:".bold());
+                for d in &report.details {
+                    let mark = if d.direction_correct { "✓".green() } else { "✗".red() };
+                    println!(
+                        "  {mark} {} — 预测30d={}, 实际30d={}, 阶段={}",
+                        d.date, d.predicted_30d, d.actual_30d, d.predicted_stage
+                    );
+                }
+            }
+            println!("{}", "━".repeat(50).dimmed());
+        }
         Commands::Status => {
             cmd_status(&db)?;
         }
@@ -230,6 +281,10 @@ async fn cmd_sync(
             "O'Reilly".into(),
             "Packt".into(),
         ]))],
+        "github" => vec![Box::new(GitHubCrawler::new(
+            vec!["rust".into(), "python".into(), "typescript".into()],
+            vec!["machine-learning".into(), "ai".into(), "llm".into()],
+        ))],
         "all" => vec![
             Box::new(ArxivCrawler::new(vec![
                 "cs.AI".into(),
@@ -245,9 +300,13 @@ async fn cmd_sync(
                 "O'Reilly".into(),
                 "Packt".into(),
             ])),
+            Box::new(GitHubCrawler::new(
+                vec!["rust".into(), "python".into(), "typescript".into()],
+                vec!["machine-learning".into(), "ai".into(), "llm".into()],
+            )),
         ],
         _ => {
-            anyhow::bail!("未知来源: {source}。可选: hn, arxiv, patent, book, all");
+            anyhow::bail!("未知来源: {source}。可选: hn, arxiv, patent, book, github, all");
         }
     };
 

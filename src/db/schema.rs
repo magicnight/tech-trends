@@ -55,6 +55,19 @@ pub fn run_migrations(conn: &Connection) -> Result<()> {
         );
 
         CREATE INDEX IF NOT EXISTS idx_snapshots_topic ON topic_snapshots(topic_id);
+
+        CREATE TABLE IF NOT EXISTS calibration_records (
+            id                      INTEGER PRIMARY KEY AUTOINCREMENT,
+            keyword                 TEXT    NOT NULL,
+            predicted_stage         TEXT    NOT NULL,
+            predicted_confidence    TEXT    NOT NULL,
+            count_30d               INTEGER NOT NULL,
+            count_90d               INTEGER NOT NULL,
+            count_180d              INTEGER NOT NULL,
+            created_at              TEXT    NOT NULL DEFAULT (datetime('now'))
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_calibration_keyword ON calibration_records(keyword);
         ",
     )?;
     Ok(())
