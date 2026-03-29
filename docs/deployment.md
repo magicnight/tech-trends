@@ -11,12 +11,12 @@
 ### 1. 克隆并编译
 
 ```bash
-git clone https://github.com/yourname/tect-brain.git
-cd tect-brain
+git clone https://github.com/yourname/tech-trends.git
+cd tech-trends
 cargo build --release
 ```
 
-编译产物位于 `target/release/tect-brain`（单个二进制文件）。
+编译产物位于 `target/release/tech-trends`（单个二进制文件）。
 
 #### Windows 编译注意事项
 
@@ -66,21 +66,21 @@ ollama pull nomic-embed-text
 export TECT_LLM_API_KEY="sk-your-deepseek-key"
 
 # 可选：指定数据库路径
-export TECT_DB_PATH="$HOME/.local/share/tect-brain/tect-brain.db"
-mkdir -p "$HOME/.local/share/tect-brain"
+export TECT_DB_PATH="$HOME/.local/share/tech-trends/tech-trends.db"
+mkdir -p "$HOME/.local/share/tech-trends"
 ```
 
 ### 4. 首次运行
 
 ```bash
 # 同步数据
-tect-brain sync all
+tech-trends sync all
 
 # 生成简报
-tect-brain digest
+tech-trends digest
 
 # 趋势预测
-tect-brain forecast "rust"
+tech-trends forecast "rust"
 ```
 
 ---
@@ -120,8 +120,8 @@ docker compose up -d
 # 拉取 Embedding 模型
 docker exec ollama ollama pull nomic-embed-text
 
-# 运行 tect-brain
-tect-brain sync all
+# 运行 tech-trends
+tech-trends sync all
 ```
 
 ---
@@ -134,13 +134,13 @@ tect-brain sync all
 
 ```cron
 # 每 6 小时同步全部数据源
-0 */6 * * * cd /path/to/tect-brain && ./target/release/tect-brain sync all >> /var/log/tect-brain-sync.log 2>&1
+0 */6 * * * cd /path/to/tech-trends && ./target/release/tech-trends sync all >> /var/log/tech-trends-sync.log 2>&1
 
 # 每天早上 7 点生成简报
-0 7 * * * cd /path/to/tect-brain && ./target/release/tect-brain digest > /path/to/reports/$(date +\%Y-\%m-\%d).md
+0 7 * * * cd /path/to/tech-trends && ./target/release/tech-trends digest > /path/to/reports/$(date +\%Y-\%m-\%d).md
 
 # 每天凌晨运行全部话题分析
-0 1 * * * cd /path/to/tect-brain && ./target/release/tect-brain topic run >> /var/log/tect-brain-topic.log 2>&1
+0 1 * * * cd /path/to/tech-trends && ./target/release/tech-trends topic run >> /var/log/tech-trends-topic.log 2>&1
 ```
 
 ### 数据备份
@@ -149,10 +149,10 @@ SQLite 是单文件数据库，备份简单：
 
 ```bash
 # 直接复制（确保没有写入操作时）
-cp tect-brain.db tect-brain.db.backup
+cp tech-trends.db tech-trends.db.backup
 
 # 或使用 SQLite 的 .backup 命令（在线备份）
-sqlite3 tect-brain.db ".backup 'tect-brain-$(date +%Y%m%d).db'"
+sqlite3 tech-trends.db ".backup 'tech-trends-$(date +%Y%m%d).db'"
 ```
 
 Qdrant 数据可从 SQLite 重建，不需要独立备份：
@@ -165,7 +165,7 @@ Qdrant 数据可从 SQLite 重建，不需要独立备份：
 
 | 组件 | 内存 | 磁盘 | 说明 |
 |------|------|------|------|
-| tect-brain | ~50MB | ~10MB | 单二进制 + SQLite |
+| tech-trends | ~50MB | ~10MB | 单二进制 + SQLite |
 | Qdrant | ~200MB | 按数据量 | 向量存储 |
 | Ollama | ~2GB | ~300MB | nomic-embed-text 模型 |
 
@@ -173,20 +173,20 @@ Qdrant 数据可从 SQLite 重建，不需要独立备份：
 
 ```bash
 # 启用详细日志
-RUST_LOG=info tect-brain sync all
+RUST_LOG=info tech-trends sync all
 
-# 只看 tect-brain 的日志
-RUST_LOG=tect_brain=debug tect-brain forecast "rust"
+# 只看 tech-trends 的日志
+RUST_LOG=tech_trends=debug tech-trends forecast "rust"
 
 # 生产环境推荐
-RUST_LOG=tect_brain=info,warn
+RUST_LOG=tech_trends=info,warn
 ```
 
 ---
 
 ## 全离线运行
 
-tect-brain 支持完全离线使用（同步除外）：
+tech-trends 支持完全离线使用（同步除外）：
 
 1. **Embedding**：Ollama 本地推理，不联网
 2. **LLM**：替换为本地 Ollama 模型

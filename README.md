@@ -1,15 +1,15 @@
-# tect-brain
+# tech-trends
 
 本地优先的 AI 驱动技术雷达 — 从 Hacker News 到 arXiv 论文，从专利数据到技术书籍。
 
 ## 它能做什么
 
-tect-brain 是一个跑在本地的技术情报监控系统。它从四个维度捕获技术信号，构建本地向量知识库，用 LLM 做问答和摘要，还能对技术趋势进行量化预测和回测。
+tech-trends 是一个跑在本地的技术情报监控系统。它从四个维度捕获技术信号，构建本地向量知识库，用 LLM 做问答和摘要，还能对技术趋势进行量化预测和回测。
 
 ### 早间技术简报
 
 ```bash
-tect-brain digest
+tech-trends digest
 ```
 
 从本地知识库提取最近 24 小时入库的内容，按主题分类，输出带摘要、分来源的结构化简报。
@@ -17,7 +17,7 @@ tect-brain digest
 ### 趋势预测
 
 ```bash
-tect-brain forecast "rust ai infrastructure"
+tech-trends forecast "rust ai infrastructure"
 ```
 
 跨越 HN、arXiv、专利、书籍四个维度，统计关键词在 30/90/180 天窗口的变化，给出置信度分级的预测，标注技术处于 emerging / accelerating / maturing / declining 哪个阶段。
@@ -25,7 +25,7 @@ tect-brain forecast "rust ai infrastructure"
 ### 回测验证
 
 ```bash
-tect-brain backtest "rust ai infrastructure"
+tech-trends backtest "rust ai infrastructure"
 ```
 
 用历史数据验证预测准确性，对比"当前窗口"与"前一个同等窗口"的变化，识别哪个数据源最先出现信号。
@@ -33,7 +33,7 @@ tect-brain backtest "rust ai infrastructure"
 ### RAG 对话
 
 ```bash
-tect-brain chat
+tech-trends chat
 ```
 
 多轮对话模式。问题先经过向量检索找到最相关的本地文章，再送入 LLM 生成有据可查的回答。
@@ -41,8 +41,8 @@ tect-brain chat
 ### 话题监控
 
 ```bash
-tect-brain topic create "Rust Agent" --keywords "rust,agent,autonomous"
-tect-brain topic run
+tech-trends topic create "Rust Agent" --keywords "rust,agent,autonomous"
+tech-trends topic run
 ```
 
 创建持续监控的话题，系统自动跑完整分析流水线（forecast + backtest），生成态势报告。
@@ -61,8 +61,8 @@ tect-brain topic run
 ### 安装
 
 ```bash
-git clone https://github.com/yourname/tect-brain.git
-cd tect-brain
+git clone https://github.com/yourname/tech-trends.git
+cd tech-trends
 cargo build --release
 ```
 
@@ -91,10 +91,10 @@ export TECT_LLM_API_KEY="sk-your-deepseek-key"
 
 ```bash
 # 同步全部数据源（默认各 30 条）
-tect-brain sync all
+tech-trends sync all
 
 # 或单独同步某个来源
-tect-brain sync hn --limit 50
+tech-trends sync hn --limit 50
 ```
 
 ## 数据来源
@@ -166,7 +166,7 @@ src/
 - [ ] 更多出版社专用适配器（O'Reilly、Packt）
 - [ ] forecast 校准机制（历史回测自动调整置信度模型）
 - [ ] ratatui TUI 仪表盘
-- [ ] MCP Server（让 AI Agent 直接调用 tect-brain）
+- [ ] MCP Server（让 AI Agent 直接调用 tech-trends）
 - [ ] per-source 调度间隔
 - [ ] Tauri 桌面客户端
 

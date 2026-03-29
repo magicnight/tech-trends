@@ -1,20 +1,20 @@
 # CLI 命令参考
 
-tect-brain 提供 6 个主命令，覆盖数据同步、分析、对话、话题管理的完整工作流。
+tech-trends 提供 6 个主命令，覆盖数据同步、分析、对话、话题管理的完整工作流。
 
 ## 全局选项
 
 ```bash
-tect-brain [COMMAND]
-tect-brain --help       # 查看帮助
-tect-brain --version    # 查看版本
+tech-trends [COMMAND]
+tech-trends --help       # 查看帮助
+tech-trends --version    # 查看版本
 ```
 
 日志级别通过 `RUST_LOG` 环境变量控制：
 
 ```bash
-RUST_LOG=debug tect-brain sync hn
-RUST_LOG=tect_brain=trace tect-brain forecast "rust"
+RUST_LOG=debug tech-trends sync hn
+RUST_LOG=tech_trends=trace tech-trends forecast "rust"
 ```
 
 ---
@@ -24,7 +24,7 @@ RUST_LOG=tect_brain=trace tect-brain forecast "rust"
 从指定数据源抓取最新内容并写入本地数据库。已存在的条目不会重复写入（增量同步）。
 
 ```bash
-tect-brain sync [SOURCE] [OPTIONS]
+tech-trends sync [SOURCE] [OPTIONS]
 ```
 
 ### 参数
@@ -38,16 +38,16 @@ tect-brain sync [SOURCE] [OPTIONS]
 
 ```bash
 # 同步全部来源，每个来源最多 30 条
-tect-brain sync
+tech-trends sync
 
 # 只同步 Hacker News，最多 100 条
-tect-brain sync hn --limit 100
+tech-trends sync hn --limit 100
 
 # 只同步 arXiv 论文
-tect-brain sync arxiv
+tech-trends sync arxiv
 
 # 同步专利数据
-tect-brain sync patent
+tech-trends sync patent
 ```
 
 ### 数据来源详情
@@ -66,7 +66,7 @@ tect-brain sync patent
 从最近 24 小时入库的内容生成结构化技术简报。需要 LLM API。
 
 ```bash
-tect-brain digest
+tech-trends digest
 ```
 
 输出内容：
@@ -86,7 +86,7 @@ tect-brain digest
 对指定关键词进行跨源趋势预测，输出阶段判断和置信度。
 
 ```bash
-tect-brain forecast <KEYWORD>
+tech-trends forecast <KEYWORD>
 ```
 
 ### 参数
@@ -108,9 +108,9 @@ tect-brain forecast <KEYWORD>
 ### 示例
 
 ```bash
-tect-brain forecast "rust"
-tect-brain forecast "large language model"
-tect-brain forecast "WebAssembly"
+tech-trends forecast "rust"
+tech-trends forecast "large language model"
+tech-trends forecast "WebAssembly"
 ```
 
 ### 阶段判断规则
@@ -136,7 +136,7 @@ tect-brain forecast "WebAssembly"
 用历史数据回测关键词趋势，验证预测的可证伪性。不需要 LLM。
 
 ```bash
-tect-brain backtest <KEYWORD>
+tech-trends backtest <KEYWORD>
 ```
 
 ### 输出字段
@@ -149,7 +149,7 @@ tect-brain backtest <KEYWORD>
 ### 示例
 
 ```bash
-tect-brain backtest "rust"
+tech-trends backtest "rust"
 # 输出:
 #   30天窗口: 当前=12, 前期=8, delta=4 ↑
 #   90天窗口: 当前=35, 前期=28, delta=7 ↑
@@ -164,7 +164,7 @@ tect-brain backtest "rust"
 进入多轮 RAG 对话模式。需要 Qdrant 和 Ollama 运行中。
 
 ```bash
-tect-brain chat
+tech-trends chat
 ```
 
 ### 运行时依赖
@@ -193,7 +193,7 @@ AI> 根据知识库检索到的文章...
 ### topic create — 创建话题
 
 ```bash
-tect-brain topic create <NAME> --keywords <KEYWORDS>
+tech-trends topic create <NAME> --keywords <KEYWORDS>
 ```
 
 | 参数 | 说明 |
@@ -202,13 +202,13 @@ tect-brain topic create <NAME> --keywords <KEYWORDS>
 | `-k, --keywords` | 关键词列表，逗号分隔 |
 
 ```bash
-tect-brain topic create "Rust Agent" --keywords "rust,agent,autonomous,agentic"
+tech-trends topic create "Rust Agent" --keywords "rust,agent,autonomous,agentic"
 ```
 
 ### topic list — 列出话题
 
 ```bash
-tect-brain topic list
+tech-trends topic list
 # 输出:
 #   [✓] Rust Agent — 关键词: rust, agent, autonomous, agentic
 #   [✗] Old Topic — 关键词: ...
@@ -218,10 +218,10 @@ tect-brain topic list
 
 ```bash
 # 运行指定话题的分析
-tect-brain topic run "Rust Agent"
+tech-trends topic run "Rust Agent"
 
 # 运行全部已启用话题
-tect-brain topic run
+tech-trends topic run
 ```
 
 每个话题的分析流水线包含：

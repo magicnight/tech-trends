@@ -3,17 +3,17 @@ use clap::{Parser, Subcommand};
 use colored::Colorize;
 use tracing_subscriber::EnvFilter;
 
-use tect_brain::config::Config;
-use tect_brain::crawlers::{
+use tech_trends::config::Config;
+use tech_trends::crawlers::{
     arxiv::ArxivCrawler, book::BookCrawler, hn::HnCrawler, patent::PatentCrawler, Crawler,
 };
-use tect_brain::db::Database;
-use tect_brain::llm::LlmClient;
-use tect_brain::services::{backtest, chat, digest, forecast, indexer, topic};
-use tect_brain::vector::{EmbeddingClient, VectorStore};
+use tech_trends::db::Database;
+use tech_trends::llm::LlmClient;
+use tech_trends::services::{backtest, chat, digest, forecast, indexer, topic};
+use tech_trends::vector::{EmbeddingClient, VectorStore};
 
 #[derive(Parser)]
-#[command(name = "tect-brain", version, about = "本地优先的 AI 驱动技术雷达")]
+#[command(name = "tech-trends", version, about = "本地优先的 AI 驱动技术雷达")]
 struct Cli {
     #[command(subcommand)]
     command: Commands,
@@ -160,7 +160,7 @@ async fn main() -> Result<()> {
             TopicAction::List => {
                 let topics = topic::list_topics(&db)?;
                 if topics.is_empty() {
-                    println!("暂无话题。使用 `tect-brain topic create` 创建。");
+                    println!("暂无话题。使用 `tech-trends topic create` 创建。");
                 } else {
                     for t in &topics {
                         let status = if t.enabled { "✓" } else { "✗" };
@@ -356,14 +356,14 @@ async fn cmd_reindex(cfg: &Config, db: &Database, batch_size: usize) -> Result<(
              FROM stories ORDER BY id LIMIT ?1 OFFSET ?2",
         )?;
 
-        let stories: Vec<tect_brain::models::Story> = stmt
+        let stories: Vec<tech_trends::models::Story> = stmt
             .query_map(rusqlite::params![batch_size as i64, offset], |row| {
                 let source_str: String = row.get(1)?;
                 let published_str: String = row.get(6)?;
-                Ok(tect_brain::models::Story {
+                Ok(tech_trends::models::Story {
                     external_id: row.get(0)?,
-                    source: tect_brain::models::Source::from_str(&source_str)
-                        .unwrap_or(tect_brain::models::Source::HackerNews),
+                    source: tech_trends::models::Source::from_str(&source_str)
+                        .unwrap_or(tech_trends::models::Source::HackerNews),
                     title: row.get(2)?,
                     url: row.get(3)?,
                     body: row.get(4)?,
@@ -401,10 +401,10 @@ async fn cmd_reindex(cfg: &Config, db: &Database, batch_size: usize) -> Result<(
         let mut stmt = conn.prepare(
             "SELECT external_id, story_external_id, text, author, published_at FROM comments",
         )?;
-        let comments: Vec<tect_brain::models::Comment> = stmt
+        let comments: Vec<tech_trends::models::Comment> = stmt
             .query_map([], |row| {
                 let published_str: String = row.get(4)?;
-                Ok(tect_brain::models::Comment {
+                Ok(tech_trends::models::Comment {
                     external_id: row.get::<_, i64>(0)? as u64,
                     story_external_id: row.get(1)?,
                     text: row.get(2)?,
@@ -434,7 +434,7 @@ async fn cmd_reindex(cfg: &Config, db: &Database, batch_size: usize) -> Result<(
 fn cmd_status(db: &Database) -> Result<()> {
     let conn = db.conn();
 
-    println!("{}", "tect-brain 数据库状态".bold());
+    println!("{}", "tech-trends 数据库状态".bold());
     println!("{}", "━".repeat(40).dimmed());
 
     // 各来源 story 数量
@@ -498,7 +498,7 @@ async fn cmd_chat(cfg: &Config) -> Result<()> {
 
     let mut engine = chat::ChatEngine::new(&embedding, &vector_store, &llm);
 
-    println!("{}", "tect-brain 对话模式 (输入 exit 退出)".bold());
+    println!("{}", "tech-trends 对话模式 (输入 exit 退出)".bold());
     println!("{}", "━".repeat(50).dimmed());
 
     let mut rl = rustyline::DefaultEditor::new()?;
@@ -532,7 +532,7 @@ async fn cmd_chat(cfg: &Config) -> Result<()> {
 }
 
 /// 插入 stories 到 SQLite（增量）
-fn insert_stories(db: &Database, stories: &[tect_brain::models::Story]) -> Result<usize> {
+fn insert_stories(db: &Database, stories: &[tech_trends::models::Story]) -> Result<usize> {
     let conn = db.conn();
     let mut inserted = 0;
     for story in stories {
@@ -560,7 +560,7 @@ fn insert_stories(db: &Database, stories: &[tect_brain::models::Story]) -> Resul
 }
 
 /// 插入 HN 评论到 SQLite（增量）
-fn insert_comments(db: &Database, comments: &[tect_brain::models::Comment]) -> Result<usize> {
+fn insert_comments(db: &Database, comments: &[tech_trends::models::Comment]) -> Result<usize> {
     let conn = db.conn();
     let mut inserted = 0;
     for comment in comments {

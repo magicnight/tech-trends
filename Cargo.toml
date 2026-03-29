@@ -1,15 +1,15 @@
 [package]
-name = "tect-brain"
+name = "tech-trends"
 version = "0.1.0"
 edition = "2024"
 description = "本地优先的 AI 驱动技术雷达 — 从 Hacker News 到 arXiv，从专利到技术书籍"
 
 [[bin]]
-name = "tect-brain"
+name = "tech-trends"
 path = "src/main.rs"
 
 [lib]
-name = "tect_brain"
+name = "tech_trends"
 path = "src/lib.rs"
 
 [dependencies]

@@ -26,9 +26,9 @@ pub struct Config {
 impl Default for Config {
     fn default() -> Self {
         Self {
-            db_path: PathBuf::from("tect-brain.db"),
+            db_path: PathBuf::from("tech-trends.db"),
             qdrant_url: "http://localhost:6334".into(),
-            qdrant_collection: "tect_brain".into(),
+            qdrant_collection: "tech_trends".into(),
             ollama_url: "http://localhost:11434".into(),
             embedding_model: "nomic-embed-text".into(),
             llm_api_url: "https://api.deepseek.com/v1".into(),

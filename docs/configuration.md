@@ -1,19 +1,19 @@
 # 配置说明
 
-tect-brain 通过环境变量进行配置。所有变量均有合理的默认值，最少只需配置 LLM API Key 即可运行。
+tech-trends 通过环境变量进行配置。所有变量均有合理的默认值，最少只需配置 LLM API Key 即可运行。
 
 ## 环境变量一览
 
 | 变量名 | 默认值 | 说明 |
 |--------|--------|------|
-| `TECT_DB_PATH` | `tect-brain.db` | SQLite 数据库文件路径 |
+| `TECT_DB_PATH` | `tech-trends.db` | SQLite 数据库文件路径 |
 | `TECT_QDRANT_URL` | `http://localhost:6334` | Qdrant 向量数据库地址 |
 | `TECT_OLLAMA_URL` | `http://localhost:11434` | Ollama 服务地址 |
 | `TECT_EMBEDDING_MODEL` | `nomic-embed-text` | Embedding 模型名称 |
 | `TECT_LLM_API_URL` | `https://api.deepseek.com/v1` | LLM API 地址（OpenAI 兼容） |
 | `TECT_LLM_API_KEY` | *(空)* | LLM API Key **（必须配置）** |
 | `TECT_LLM_MODEL` | `deepseek-chat` | LLM 模型名称 |
-| `RUST_LOG` | *(未设置)* | 日志级别，如 `debug`、`tect_brain=trace` |
+| `RUST_LOG` | *(未设置)* | 日志级别，如 `debug`、`tech_trends=trace` |
 
 ## 最小配置
 
@@ -33,14 +33,14 @@ export TECT_LLM_API_KEY="sk-your-api-key"
 # .env
 TECT_LLM_API_KEY=sk-your-deepseek-key
 TECT_LLM_MODEL=deepseek-chat
-TECT_DB_PATH=./data/tect-brain.db
+TECT_DB_PATH=./data/tech-trends.db
 ```
 
 > 注意：当前版本需要手动 `source .env` 或使用 `dotenv` 等工具加载。
 
 ## LLM 提供商切换
 
-tect-brain 的 LLM 客户端兼容任何 OpenAI 格式的 API。切换提供商只需修改两个变量：
+tech-trends 的 LLM 客户端兼容任何 OpenAI 格式的 API。切换提供商只需修改两个变量：
 
 ### DeepSeek（默认）
 
@@ -95,7 +95,7 @@ TECT_EMBEDDING_MODEL=mxbai-embed-large    # 1024 维
 
 ## Qdrant 配置
 
-默认连接 `localhost:6334`（gRPC 端口）。Qdrant 的 HTTP API 端口是 `6333`，tect-brain 使用 gRPC 连接。
+默认连接 `localhost:6334`（gRPC 端口）。Qdrant 的 HTTP API 端口是 `6333`，tech-trends 使用 gRPC 连接。
 
 ### Docker 启动
 
@@ -112,8 +112,8 @@ docker run -d \
 
 ## 数据库路径
 
-默认在当前工作目录创建 `tect-brain.db`。建议指定固定路径避免多处创建：
+默认在当前工作目录创建 `tech-trends.db`。建议指定固定路径避免多处创建：
 
 ```bash
-TECT_DB_PATH=$HOME/.local/share/tect-brain/tect-brain.db
+TECT_DB_PATH=$HOME/.local/share/tech-trends/tech-trends.db
 ```

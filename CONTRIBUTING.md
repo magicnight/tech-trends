@@ -1,13 +1,13 @@
 # 贡献指南
 
-感谢你对 tect-brain 的兴趣！以下是参与开发的指引。
+感谢你对 tech-trends 的兴趣！以下是参与开发的指引。
 
 ## 开发环境搭建
 
 ```bash
 # 克隆仓库
-git clone https://github.com/yourname/tect-brain.git
-cd tect-brain
+git clone https://github.com/yourname/tech-trends.git
+cd tech-trends
 
 # 编译（确保有 Rust 1.75+）
 cargo build
