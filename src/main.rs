@@ -9,7 +9,7 @@ use tect_brain::crawlers::{
 };
 use tect_brain::db::Database;
 use tect_brain::llm::LlmClient;
-use tect_brain::services::{backtest, chat, digest, forecast, topic};
+use tect_brain::services::{backtest, chat, digest, forecast, indexer, topic};
 use tect_brain::vector::{EmbeddingClient, VectorStore};
 
 #[derive(Parser)]
@@ -21,7 +21,7 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Commands {
-    /// 同步数据源
+    /// 同步数据源（含向量化）
     Sync {
         /// 指定来源: hn, arxiv, patent, book, all
         #[arg(default_value = "all")]
@@ -29,6 +29,15 @@ enum Commands {
         /// 每个来源抓取条数上限
         #[arg(short, long, default_value = "30")]
         limit: usize,
+        /// 跳过向量化（仅写入 SQLite）
+        #[arg(long, default_value = "false")]
+        skip_index: bool,
+    },
+    /// 从 SQLite 重建 Qdrant 向量索引
+    Reindex {
+        /// 批次大小
+        #[arg(short, long, default_value = "50")]
+        batch_size: usize,
     },
     /// 生成每日技术简报
     Digest,
@@ -49,6 +58,8 @@ enum Commands {
         #[command(subcommand)]
         action: TopicAction,
     },
+    /// 显示数据库统计信息
+    Status,
 }
 
 #[derive(Subcommand)]
@@ -72,6 +83,9 @@ enum TopicAction {
 
 #[tokio::main]
 async fn main() -> Result<()> {
+    // 加载 .env 文件
+    dotenvy::dotenv().ok();
+
     tracing_subscriber::fmt()
         .with_env_filter(EnvFilter::from_default_env())
         .init();
@@ -81,8 +95,15 @@ async fn main() -> Result<()> {
     let db = Database::open(&cfg.db_path)?;
 
     match cli.command {
-        Commands::Sync { source, limit } => {
-            cmd_sync(&db, &source, limit).await?;
+        Commands::Sync {
+            source,
+            limit,
+            skip_index,
+        } => {
+            cmd_sync(&cfg, &db, &source, limit, skip_index).await?;
+        }
+        Commands::Reindex { batch_size } => {
+            cmd_reindex(&cfg, &db, batch_size).await?;
         }
         Commands::Digest => {
             let llm = make_llm(&cfg);
@@ -128,7 +149,7 @@ async fn main() -> Result<()> {
             }
         }
         Commands::Chat => {
-            cmd_chat(&cfg, &db).await?;
+            cmd_chat(&cfg).await?;
         }
         Commands::Topic { action } => match action {
             TopicAction::Create { name, keywords } => {
@@ -173,15 +194,28 @@ async fn main() -> Result<()> {
                 }
             }
         },
+        Commands::Status => {
+            cmd_status(&db)?;
+        }
     }
 
     Ok(())
 }
 
-/// 数据同步命令
-async fn cmd_sync(db: &Database, source: &str, limit: usize) -> Result<()> {
-    let crawlers: Vec<Box<dyn Crawler>> = match source {
-        "hn" => vec![Box::new(HnCrawler::new())],
+/// 数据同步命令（含可选向量化）
+async fn cmd_sync(
+    cfg: &Config,
+    db: &Database,
+    source: &str,
+    limit: usize,
+    skip_index: bool,
+) -> Result<()> {
+    // HN 需要特殊处理（评论）
+    let is_hn = source == "hn" || source == "all";
+
+    // 非 HN 爬虫
+    let other_crawlers: Vec<Box<dyn Crawler>> = match source {
+        "hn" => vec![],
         "arxiv" => vec![Box::new(ArxivCrawler::new(vec![
             "cs.AI".into(),
             "cs.LG".into(),
@@ -197,7 +231,6 @@ async fn cmd_sync(db: &Database, source: &str, limit: usize) -> Result<()> {
             "Packt".into(),
         ]))],
         "all" => vec![
-            Box::new(HnCrawler::new()),
             Box::new(ArxivCrawler::new(vec![
                 "cs.AI".into(),
                 "cs.LG".into(),
@@ -218,41 +251,80 @@ async fn cmd_sync(db: &Database, source: &str, limit: usize) -> Result<()> {
         }
     };
 
-    for crawler in &crawlers {
+    // 初始化向量化组件（如果需要）
+    let indexing = if !skip_index {
+        match (
+            EmbeddingClient::new(&cfg.ollama_url, &cfg.embedding_model),
+            VectorStore::new(&cfg.qdrant_url, &cfg.qdrant_collection, cfg.embedding_dim).await,
+        ) {
+            (emb, Ok(vs)) => Some((emb, vs)),
+            (_, Err(e)) => {
+                println!(
+                    "  {} 向量化不可用（Qdrant: {e}），仅写入 SQLite",
+                    "⚠".yellow()
+                );
+                None
+            }
+        }
+    } else {
+        None
+    };
+
+    // 处理 HN（含评论）
+    if is_hn {
+        println!("{}", "▶ 同步 hackernews...".cyan());
+        let hn = HnCrawler::new();
+        match hn.fetch_with_comments(limit).await {
+            Ok(result) => {
+                let inserted = insert_stories(db, &result.stories)?;
+                let comments_inserted = insert_comments(db, &result.comments)?;
+                println!(
+                    "  {} {} 条 story 中新增 {} 条, {} 条评论中新增 {} 条",
+                    "✓".green(),
+                    result.stories.len(),
+                    inserted,
+                    result.comments.len(),
+                    comments_inserted
+                );
+
+                // 向量化新增内容
+                if let Some((ref emb, ref vs)) = indexing {
+                    let story_indexed = indexer::index_stories(&result.stories, emb, vs).await?;
+                    let comment_indexed =
+                        indexer::index_comments(&result.comments, emb, vs).await?;
+                    println!(
+                        "  {} 向量化: {} stories + {} comments",
+                        "✓".green(),
+                        story_indexed,
+                        comment_indexed
+                    );
+                }
+            }
+            Err(e) => {
+                println!("  {} hackernews 同步失败: {e}", "✗".red());
+            }
+        }
+    }
+
+    // 处理其他爬虫
+    for crawler in &other_crawlers {
         let name = crawler.source_name();
         println!("{}", format!("▶ 同步 {name}...").cyan());
 
         match crawler.fetch(limit).await {
             Ok(stories) => {
-                let mut inserted = 0;
-                let conn = db.conn();
-                for story in &stories {
-                    let result = conn.execute(
-                        "INSERT OR IGNORE INTO stories
-                         (external_id, source, title, url, body, author, published_at, score, metadata)
-                         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
-                        rusqlite::params![
-                            story.external_id,
-                            story.source.as_str(),
-                            story.title,
-                            story.url,
-                            story.body,
-                            story.author,
-                            story.published_at.to_rfc3339(),
-                            story.score,
-                            story.metadata.as_ref().map(|m| m.to_string()),
-                        ],
-                    );
-                    if let Ok(1) = result {
-                        inserted += 1;
-                    }
-                }
+                let inserted = insert_stories(db, &stories)?;
                 println!(
                     "  {} {} 条中新增 {} 条",
                     "✓".green(),
                     stories.len(),
                     inserted
                 );
+
+                if let Some((ref emb, ref vs)) = indexing {
+                    let indexed = indexer::index_stories(&stories, emb, vs).await?;
+                    println!("  {} 向量化: {} 条", "✓".green(), indexed);
+                }
             }
             Err(e) => {
                 println!("  {} {name} 同步失败: {e}", "✗".red());
@@ -263,8 +335,162 @@ async fn cmd_sync(db: &Database, source: &str, limit: usize) -> Result<()> {
     Ok(())
 }
 
+/// 从 SQLite 重建 Qdrant 向量索引
+async fn cmd_reindex(cfg: &Config, db: &Database, batch_size: usize) -> Result<()> {
+    let embedding = EmbeddingClient::new(&cfg.ollama_url, &cfg.embedding_model);
+    let vector_store =
+        VectorStore::new(&cfg.qdrant_url, &cfg.qdrant_collection, cfg.embedding_dim).await?;
+
+    let conn = db.conn();
+
+    // 统计总数
+    let total: i64 = conn.query_row("SELECT COUNT(*) FROM stories", [], |r| r.get(0))?;
+    println!("共 {total} 条 story 待索引 (batch_size={batch_size})");
+
+    let mut offset = 0i64;
+    let mut total_indexed = 0usize;
+
+    loop {
+        let mut stmt = conn.prepare(
+            "SELECT external_id, source, title, url, body, author, published_at, score, metadata
+             FROM stories ORDER BY id LIMIT ?1 OFFSET ?2",
+        )?;
+
+        let stories: Vec<tect_brain::models::Story> = stmt
+            .query_map(rusqlite::params![batch_size as i64, offset], |row| {
+                let source_str: String = row.get(1)?;
+                let published_str: String = row.get(6)?;
+                Ok(tect_brain::models::Story {
+                    external_id: row.get(0)?,
+                    source: tect_brain::models::Source::from_str(&source_str)
+                        .unwrap_or(tect_brain::models::Source::HackerNews),
+                    title: row.get(2)?,
+                    url: row.get(3)?,
+                    body: row.get(4)?,
+                    author: row.get(5)?,
+                    published_at: published_str
+                        .parse()
+                        .unwrap_or_else(|_| chrono::Utc::now()),
+                    score: row.get(7)?,
+                    metadata: row
+                        .get::<_, Option<String>>(8)?
+                        .and_then(|s| serde_json::from_str(&s).ok()),
+                })
+            })?
+            .filter_map(|r| r.ok())
+            .collect();
+
+        if stories.is_empty() {
+            break;
+        }
+
+        let batch_len = stories.len();
+        let indexed = indexer::index_stories(&stories, &embedding, &vector_store).await?;
+        total_indexed += indexed;
+        offset += batch_len as i64;
+
+        println!(
+            "  进度: {offset}/{total} — 本批索引 {indexed}/{batch_len}",
+        );
+    }
+
+    // 评论
+    let comment_total: i64 = conn.query_row("SELECT COUNT(*) FROM comments", [], |r| r.get(0))?;
+    if comment_total > 0 {
+        println!("共 {comment_total} 条评论待索引");
+        let mut stmt = conn.prepare(
+            "SELECT external_id, story_external_id, text, author, published_at FROM comments",
+        )?;
+        let comments: Vec<tect_brain::models::Comment> = stmt
+            .query_map([], |row| {
+                let published_str: String = row.get(4)?;
+                Ok(tect_brain::models::Comment {
+                    external_id: row.get::<_, i64>(0)? as u64,
+                    story_external_id: row.get(1)?,
+                    text: row.get(2)?,
+                    author: row.get(3)?,
+                    published_at: published_str
+                        .parse()
+                        .unwrap_or_else(|_| chrono::Utc::now()),
+                })
+            })?
+            .filter_map(|r| r.ok())
+            .collect();
+
+        let comment_indexed =
+            indexer::index_comments(&comments, &embedding, &vector_store).await?;
+        println!("  评论索引完成: {comment_indexed}/{comment_total}");
+    }
+
+    println!(
+        "{}",
+        format!("✓ 重建完成: {total_indexed} stories 已索引").green()
+    );
+
+    Ok(())
+}
+
+/// 显示数据库统计信息
+fn cmd_status(db: &Database) -> Result<()> {
+    let conn = db.conn();
+
+    println!("{}", "tect-brain 数据库状态".bold());
+    println!("{}", "━".repeat(40).dimmed());
+
+    // 各来源 story 数量
+    let mut stmt = conn.prepare(
+        "SELECT source, COUNT(*) FROM stories GROUP BY source ORDER BY COUNT(*) DESC",
+    )?;
+    let rows: Vec<(String, i64)> = stmt
+        .query_map([], |row| Ok((row.get(0)?, row.get(1)?)))?
+        .filter_map(|r| r.ok())
+        .collect();
+
+    let total_stories: i64 = rows.iter().map(|(_, c)| c).sum();
+    println!("{} {}", "Stories 总计:".bold(), total_stories);
+    for (source, count) in &rows {
+        println!("  {source}: {count}");
+    }
+
+    // 评论数
+    let comment_count: i64 =
+        conn.query_row("SELECT COUNT(*) FROM comments", [], |r| r.get(0))?;
+    println!("{} {}", "HN 评论:".bold(), comment_count);
+
+    // 话题数
+    let topic_count: i64 = conn.query_row("SELECT COUNT(*) FROM topics", [], |r| r.get(0))?;
+    println!("{} {}", "监控话题:".bold(), topic_count);
+
+    // 最近同步时间
+    let latest: Option<String> = conn
+        .query_row(
+            "SELECT MAX(created_at) FROM stories",
+            [],
+            |r| r.get(0),
+        )
+        .ok();
+    if let Some(ts) = latest {
+        println!("{} {}", "最近入库:".bold(), ts);
+    }
+
+    // 时间跨度
+    let earliest: Option<String> = conn
+        .query_row(
+            "SELECT MIN(published_at) FROM stories",
+            [],
+            |r| r.get(0),
+        )
+        .ok();
+    if let Some(ts) = earliest {
+        println!("{} {}", "最早数据:".bold(), ts);
+    }
+
+    println!("{}", "━".repeat(40).dimmed());
+    Ok(())
+}
+
 /// RAG 对话模式
-async fn cmd_chat(cfg: &Config, _db: &Database) -> Result<()> {
+async fn cmd_chat(cfg: &Config) -> Result<()> {
     let embedding = EmbeddingClient::new(&cfg.ollama_url, &cfg.embedding_model);
     let vector_store =
         VectorStore::new(&cfg.qdrant_url, &cfg.qdrant_collection, cfg.embedding_dim).await?;
@@ -303,6 +529,58 @@ async fn cmd_chat(cfg: &Config, _db: &Database) -> Result<()> {
     }
 
     Ok(())
+}
+
+/// 插入 stories 到 SQLite（增量）
+fn insert_stories(db: &Database, stories: &[tect_brain::models::Story]) -> Result<usize> {
+    let conn = db.conn();
+    let mut inserted = 0;
+    for story in stories {
+        let result = conn.execute(
+            "INSERT OR IGNORE INTO stories
+             (external_id, source, title, url, body, author, published_at, score, metadata)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
+            rusqlite::params![
+                story.external_id,
+                story.source.as_str(),
+                story.title,
+                story.url,
+                story.body,
+                story.author,
+                story.published_at.to_rfc3339(),
+                story.score,
+                story.metadata.as_ref().map(|m| m.to_string()),
+            ],
+        );
+        if let Ok(1) = result {
+            inserted += 1;
+        }
+    }
+    Ok(inserted)
+}
+
+/// 插入 HN 评论到 SQLite（增量）
+fn insert_comments(db: &Database, comments: &[tect_brain::models::Comment]) -> Result<usize> {
+    let conn = db.conn();
+    let mut inserted = 0;
+    for comment in comments {
+        let result = conn.execute(
+            "INSERT OR IGNORE INTO comments
+             (external_id, story_external_id, text, author, published_at)
+             VALUES (?1, ?2, ?3, ?4, ?5)",
+            rusqlite::params![
+                comment.external_id as i64,
+                comment.story_external_id,
+                comment.text,
+                comment.author,
+                comment.published_at.to_rfc3339(),
+            ],
+        );
+        if let Ok(1) = result {
+            inserted += 1;
+        }
+    }
+    Ok(inserted)
 }
 
 fn make_llm(cfg: &Config) -> LlmClient {

@@ -57,3 +57,6 @@ colored = "3"
 
 # Prompt for chat REPL
 rustyline = "15"
+
+# .env file loading
+dotenvy = "0.15"
